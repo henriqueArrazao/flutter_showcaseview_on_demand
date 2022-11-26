@@ -221,7 +221,7 @@ class Showcase extends StatefulWidget {
   /// ```
   final Alignment? scaleAnimationAlignment;
 
-  final bool isShowing;
+  final bool Function() shouldBeShown;
 
   final VoidCallback onSkip;
 
@@ -229,8 +229,11 @@ class Showcase extends StatefulWidget {
 
   final RouteObserver<ModalRoute<void>> routeObserver;
 
+  final VoidCallback setAsBeingShown;
+
   const Showcase({
-    required this.isShowing,
+    required this.shouldBeShown,
+    required this.setAsBeingShown,
     required this.child,
     required this.key,
     required this.onSkip,
@@ -289,7 +292,8 @@ class Showcase extends StatefulWidget {
             "onTargetClick is required if you're using disposeOnTap");
 
   const Showcase.withWidget({
-    required this.isShowing,
+    required this.setAsBeingShown,
+    required this.shouldBeShown,
     required this.onSkip,
     required this.key,
     required this.child,
@@ -340,21 +344,63 @@ class Showcase extends StatefulWidget {
   State<Showcase> createState() => _ShowcaseState();
 }
 
+class Teste {}
+
 class _ShowcaseState extends State<Showcase> with RouteAware {
   bool _isScrollRunning = false;
   bool _isTooltipDismissed = false;
   Timer? timer;
   GetPosition? position;
+  AnimationController? tabBarViewAnimation;
+
+  @override
+  @override
+  void initState() {
+    super.initState();
+    tabBarViewAnimation = (context
+        .findAncestorWidgetOfExactType<TabBarView>()
+        ?.controller
+        ?.animation as AnimationController?);
+    if (isTabViewAnimating) {
+      tabBarViewAnimation?.addStatusListener(_tabBarViewListener);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    if (isShowing) setState(() {});
+  }
+
+  void _tabBarViewListener(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      setState(() {});
+      _removeTabBarViewListener();
+    }
+  }
+
+  void _removeTabBarViewListener() {
+    tabBarViewAnimation?.removeStatusListener(_tabBarViewListener);
+  }
+
+  bool get isTabViewAnimating => tabBarViewAnimation?.isAnimating ?? false;
 
   @override
   void dispose() {
+    _removeTabBarViewListener();
     widget.routeObserver.unsubscribe(this);
     super.dispose();
   }
 
+  bool get isShowing =>
+      widget.shouldBeShown() &&
+      isTabViewAnimating == false &&
+      ModalRoute.of(context)?.isCurrent != false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    widget.routeObserver.unsubscribe(this);
+    widget.routeObserver.subscribe(this, ModalRoute.of(context)!);
     position ??= GetPosition(
       key: widget.key,
       padding: widget.targetPadding,
@@ -381,7 +427,8 @@ class _ShowcaseState extends State<Showcase> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isShowing) {
+    if (isShowing) {
+      widget.setAsBeingShown();
       return AnchoredOverlay(
         overlayBuilder: (context, rectBound, offset) {
           final size = MediaQuery.of(context).size;
@@ -417,7 +464,7 @@ class _ShowcaseState extends State<Showcase> with RouteAware {
     Size screenSize,
   ) {
     var blur = 0.0;
-    if (widget.isShowing) {
+    if (isShowing) {
       blur = widget.blurValue ?? 0;
     }
 
@@ -425,7 +472,7 @@ class _ShowcaseState extends State<Showcase> with RouteAware {
     // provided blur is less than 0.
     blur = kIsWeb && blur < 0 ? 0 : blur;
 
-    return widget.isShowing
+    return isShowing
         ? Stack(
             children: [
               ClipPath(

@@ -410,6 +410,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                               padding: widget.tooltipPadding,
                               color: widget.tooltipBackgroundColor,
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Flexible(
                                     child: Column(
@@ -465,7 +466,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                                     IconButton(
                                       onPressed: widget.onClose,
                                       icon: const Icon(Icons.close),
-                                    )
+                                    ),
                                 ],
                               ),
                             ),
